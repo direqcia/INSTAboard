@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>InstaPix Live Dashboard</title>
+  <meta http-equiv="refresh" content="30">
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;background:#f5f7fa;margin:0;padding:1rem}
+    .card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);margin:.8rem 0;padding:1rem 1.2rem}
+    h2{margin:.2rem 0 .6rem}
+    .badge{display:inline-block;padding:.25rem .6rem;border-radius:20px;font-size:.75rem;font-weight:600;color:#fff}
+    .online{background:#22c55e}.offline{background:#ef4444}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:.4rem .2rem;text-align:left;font-size:.9rem}
+    th{color:#475569}
+  </style>
+</head>
+<body>
+  <h1>InstaPix Kiosks – Live</h1>
+  <div id="cards"></div>
+
+<script>
+async function fetchData() {
+  try {
+    const res = await fetch("http://api.instapix.ge:29998/Stat");
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    document.getElementById("cards").innerHTML =
+      "<div class='card' style='color:red'>⚠️ Could not reach API</div>";
+  }
+}
+
+function render(kiosks) {
+  const box = document.getElementById("cards");
+  box.innerHTML = "";
+
+  kiosks.forEach(k => {
+    const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000; // 5-min grace
+    const status  = isOnline ? '<span class="badge online">ONLINE</span>'
+                             : '<span class="badge offline">OFFLINE</span>';
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <h2>${k.description} ${status}</h2>
+      <table>
+        <tr><th>Revenue</th><td>₾ ${k.totalAmount.toLocaleString()}</td></tr>
+        <tr><th>Transactions</th><td>${k.totalCount}</td></tr>
+        <tr><th>Smartphone prints</th><td>${k.quantity}</td></tr>
+        <tr><th>Booth-camera prints</th><td>${k.byCameraQuantity}</td></tr>
+        <tr><th>Photos taken on booth</th><td>${k.mediaCounter}</td></tr>
+        <tr><th>Last operation</th><td>${new Date(k.lastOperationDate).toLocaleString()}</td></tr>
+      </table>
+    `;
+    box.appendChild(div);
+  });
+}
+
+fetchData();
+setInterval(fetchData, 30000); // every 30 s
+</script>
+</body>
+</html>
