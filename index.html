@@ -22,7 +22,7 @@
 <script>
 async function fetchData() {
   try {
-    const res = await fetch("https://corsproxy.io/?" + encodeURIComponent("http://api.instapix.ge:29998/Stat"));
+   const res = await fetch("https://instapix-proxy.vercel.app/api/proxy");
     const data = await res.json();
     render(data);
   } catch (e) {
