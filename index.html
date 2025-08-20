@@ -13,6 +13,7 @@
     table{width:100%;border-collapse:collapse}
     th,td{padding:.4rem .2rem;text-align:left;font-size:.9rem}
     th{color:#475569}
+    .bar{height:8px;border-radius:4px;margin-top:2px}
   </style>
 </head>
 <body>
@@ -22,7 +23,7 @@
 <script>
 async function fetchData() {
   try {
-   const res = await fetch("https://instapix-proxy.vercel.app/api/proxy");
+    const res = await fetch("https://instapix-proxy.vercel.app/api/proxy");
     const data = await res.json();
     render(data);
   } catch (e) {
@@ -31,12 +32,20 @@ async function fetchData() {
   }
 }
 
+function progressBar(value, max) {
+  const pct = max ? Math.round((value / max) * 100) : 0;
+  let color = '#22c55e';                     // green
+  if (pct <= 50) color = '#ef4444';          // red
+  else if (pct <= 75) color = '#facc15';     // yellow
+  return `<div class="bar" style="width:${pct}%;background:${color}"></div>`;
+}
+
 function render(kiosks) {
   const box = document.getElementById("cards");
   box.innerHTML = "";
 
   kiosks.forEach(k => {
-    const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000; // 5-min grace
+    const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
     const status  = isOnline ? '<span class="badge online">ONLINE</span>'
                              : '<span class="badge offline">OFFLINE</span>';
     const div = document.createElement("div");
@@ -44,12 +53,18 @@ function render(kiosks) {
     div.innerHTML = `
       <h2>${k.description} ${status}</h2>
       <table>
-        <tr><th>Revenue</th><td>₾ ${k.totalAmount.toLocaleString()}</td></tr>
+        <tr><th>Last 30-day sales</th><td>₾ ${k.totalAmount.toLocaleString()}</td></tr>
         <tr><th>Transactions</th><td>${k.totalCount}</td></tr>
         <tr><th>Smartphone prints</th><td>${k.quantity}</td></tr>
         <tr><th>Booth-camera prints</th><td>${k.byCameraQuantity}</td></tr>
-        <tr><th>Photos taken on booth</th><td>${k.mediaCounter}</td></tr>
-        <tr><th>Last operation</th><td>${new Date(k.lastOperationDate).toLocaleString()}</td></tr>
+        <tr>
+          <th>Media Left</th>
+          <td>
+            ${k.mediaCounter} / 700
+            ${progressBar(k.mediaCounter, 700)}
+          </td>
+        </tr>
+        <tr><th>Last Client</th><td>${new Date(k.lastOperationDate).toLocaleString()}</td></tr>
       </table>
     `;
     box.appendChild(div);
@@ -57,7 +72,7 @@ function render(kiosks) {
 }
 
 fetchData();
-setInterval(fetchData, 30000); // every 30 s
+setInterval(fetchData, 30000);
 </script>
 </body>
 </html>
