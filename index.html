@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <title>InstaPix Live Dashboard</title>
-  <meta http-equiv="refresh" content="60">
+  <meta http-equiv="refresh" content="30">
   <style>
     body{font-family:system-ui,Segoe UI,Arial;background:#f5f7fa;margin:0;padding:1rem}
     .card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);margin:.8rem 0;padding:1rem 1.2rem}
@@ -14,77 +14,40 @@
     th,td{padding:.4rem .2rem;text-align:left;font-size:.9rem}
     th{color:#475569}
     .bar{height:8px;border-radius:4px;margin-top:2px}
-    .chart-card { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <h1>InstaPix Kiosks – Live</h1>
-  
   <div id="cards"></div>
 
-  <div class="chart-card">
-    <h3>30-Day Sales Performance (₾)</h3>
-    <canvas id="salesLineChart"></canvas>
-  </div>
-
 <script>
-let salesChart = null;
-
 async function fetchData() {
   try {
     const res = await fetch("https://instapix-proxy.vercel.app/api/proxy");
     const data = await res.json();
     render(data);
-    updateLineChart(data);
   } catch (e) {
-    document.getElementById("cards").innerHTML = "<div class='card' style='color:red'>⚠️ API Error</div>";
+    document.getElementById("cards").innerHTML =
+      "<div class='card' style='color:red'>⚠️ Could not reach API</div>";
   }
-}
-
-function updateLineChart(kiosks) {
-  const labels = kiosks.map(k => k.description);
-  const salesData = kiosks.map(k => k.totalAmount);
-
-  const ctx = document.getElementById('salesLineChart').getContext('2d');
-  if (salesChart) salesChart.destroy();
-  
-  salesChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Current 30-Day Total (₾)',
-        data: salesData,
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 6,
-        pointBackgroundColor: '#3b82f6'
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true, title: { display: true, text: 'GEL (₾)' } }
-      }
-    }
-  });
 }
 
 function progressBar(value, max) {
   const pct = max ? Math.round((value / max) * 100) : 0;
-  let color = pct <= 50 ? '#ef4444' : pct <= 75 ? '#facc15' : '#22c55e';
+  let color = '#22c55e';                     // green
+  if (pct <= 50) color = '#ef4444';          // red
+  else if (pct <= 75) color = '#facc15';     // yellow
   return `<div class="bar" style="width:${pct}%;background:${color}"></div>`;
 }
 
 function render(kiosks) {
   const box = document.getElementById("cards");
   box.innerHTML = "";
+
   kiosks.forEach(k => {
-    const isOnline = (new Date() - new Date(k.lastActive)) < 5 * 60 * 1000;
-    const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+    const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
+    const status  = isOnline ? '<span class="badge online">ONLINE</span>'
+                             : '<span class="badge offline">OFFLINE</span>';
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
@@ -102,13 +65,14 @@ function render(kiosks) {
           </td>
         </tr>
         <tr><th>Last Client</th><td>${new Date(k.lastOperationDate).toLocaleString()}</td></tr>
-      </table>`;
+      </table>
+    `;
     box.appendChild(div);
   });
 }
 
 fetchData();
-setInterval(fetchData, 60000);
+setInterval(fetchData, 30000);
 </script>
 </body>
 </html>
