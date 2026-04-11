@@ -43,6 +43,18 @@ function render(kiosks, counts) {
     const prints = counts[k.description] || 0;
     const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
     const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+    
+    // Calculate Percentages rounded to 5%
+    const total = k.quantity + k.byCameraQuantity;
+    let smartPct = 0;
+    let boothPct = 0;
+    
+    if (total > 0) {
+      // Round to nearest 5: Math.round(val / 5) * 5
+      smartPct = Math.round(((k.quantity / total) * 100) / 5) * 5;
+      boothPct = 100 - smartPct; // Ensures they always hit 100% total
+    }
+
     const mediaPct = (k.mediaCounter / 700) * 100;
     const barColor = mediaPct < 25 ? '#ef4444' : mediaPct < 60 ? '#facc15' : '#22c55e';
 
@@ -55,6 +67,9 @@ function render(kiosks, counts) {
           <div style="margin-top:8px">
             <small style="color:#64748b">Paper Level: <b>${k.mediaCounter} / 700</b></small>
             <div class="bar-bg"><div class="progress" style="width:${mediaPct}%; background:${barColor}"></div></div>
+          </div>
+          <div style="margin-top:10px; font-size:0.75rem; color:#475569">
+            <b>Sources:</b> Smartphone ${smartPct}% | Booth ${boothPct}%
           </div>
         </div>
         <div style="text-align:right; min-width:120px">
