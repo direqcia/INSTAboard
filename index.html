@@ -46,11 +46,10 @@ let isOnline = false;
 let adjustedTimeStr = "N/A";
 
 if (k.lastActive) {
-  const utcDate = new Date(k.lastActive);
-  const adjustedDate = new Date(utcDate.getTime() + 14400000); // Add 4 hours
+  const activeDate = new Date(k.lastActive);
   
-  isOnline = new Date() - adjustedDate < 5 * 60 * 1000;
-  adjustedTimeStr = adjustedDate.toLocaleTimeString();
+  isOnline = new Date() - activeDate < 5 * 60 * 1000;
+  adjustedTimeStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 } else {
   // Retains original date parsing logic for null values
   isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
@@ -77,12 +76,14 @@ div.className = "card";
 div.innerHTML = `
      <div style="display:flex; justify-content:space-between; align-items:center">
         <div style="flex:1">
-          <h2>${k.description}${status}</h2>
-          <div style="margin-top:8px">
-            <small style="color:#64748b">Paper Level: <b>${k.mediaCounter} / 700</b></small>
-            <div class="bar-bg"><div class="progress" style="width:${mediaPct}%; background:${barColor}"></div></div>
-          </div>
-           <div style="margin-top:10px; font-size:0.75rem; color:#475569">
+           <h2>${k.description}${status}</h2>
+           <div style="margin-top:8px">
+             <small style="color:#64748b">Paper Level: <b>${k.mediaCounter} / 700</b></small>
+             <div class="bar-bg" style="height:8px; border-radius:4px; background:#e2e8f0; margin-top:10px; overflow:hidden; width:100%;">
+               <div class="progress" style="width:${mediaPct}%; background:${barColor}; height:100%;"></div>
+             </div>
+           </div>
+            <div style="margin-top:10px; font-size:0.75rem; color:#475569">
             <b>Sources:</b> Smartphone ${smartPct}% | Booth ${boothPct}%
            </div>
         </div>
