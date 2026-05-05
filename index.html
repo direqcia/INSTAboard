@@ -71,7 +71,8 @@ function render(kiosks, counts) {
       const activeDate = new Date(k.lastActive);
       
       isOnline = new Date() - activeDate < 5 * 60 * 1000;
-      adjustedTimeStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      // 24-საათიანი ფორმატი საათის, წუთის და წამის ჩვენებით
+      adjustedStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     } else {
       isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
     }
@@ -113,7 +114,7 @@ function render(kiosks, counts) {
           </div>
        </div>
        <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
-          Last Heartbeat: ${adjustedTimeStr} | 30d Total: ₾${k.totalAmount}
+          Last Heartbeat: ${adjustedStr} | 30d Total: ₾${k.totalAmount}
           <div style="margin-top:4px; color:#64748b">
             Last Print: ${timeSincePrint}
           </div>
