@@ -36,53 +36,67 @@ async function fetchData() {
 }
 
 function render(kiosks, counts) {
-  const box = document.getElementById("cards");
-  box.innerHTML = "";
+const box = document.getElementById("cards");
+box.innerHTML = "";
 
-  kiosks.forEach(k => {
-    const prints = counts[k.description] || 0;
-    const isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
-    const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+kiosks.forEach(k => {
+const prints = counts[k.description] || 0;
+
+let isOnline = false;
+let adjustedTimeStr = "N/A";
+
+if (k.lastActive) {
+  const utcDate = new Date(k.lastActive);
+  const adjustedDate = new Date(utcDate.getTime() + 14400000); // Add 4 hours
+  
+  isOnline = new Date() - adjustedDate < 5 * 60 * 1000;
+  adjustedTimeStr = adjustedDate.toLocaleTimeString();
+} else {
+  // Retains original date parsing logic for null values
+  isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
+}
+
+const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
     
-    // Calculate Percentages rounded to 5%
-    const total = k.quantity + k.byCameraQuantity;
-    let smartPct = 0;
-    let boothPct = 0;
+// Calculate Percentages rounded to 5%
+const total = k.quantity + k.byCameraQuantity;
+let smartPct = 0;
+let boothPct = 0;
     
-    if (total > 0) {
-      // Round to nearest 5: Math.round(val / 5) * 5
-      smartPct = Math.round(((k.quantity / total) * 100) / 5) * 5;
-      boothPct = 100 - smartPct; // Ensures they always hit 100% total
-    }
+if (total > 0) {
+  // Round to nearest 5: Math.round(val / 5) * 5
+  smartPct = Math.round(((k.quantity / total) * 100) / 5) * 5;
+  boothPct = 100 - smartPct; // Ensures they always hit 100% total
+}
 
-    const mediaPct = (k.mediaCounter / 700) * 100;
-    const barColor = mediaPct < 25 ? '#ef4444' : mediaPct < 60 ? '#facc15' : '#22c55e';
+const mediaPct = (k.mediaCounter / 700) * 100;
+const barColor = mediaPct < 25 ? '#ef4444' : mediaPct < 60 ? '#facc15' : '#22c55e';
 
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center">
+const div = document.createElement("div");
+div.className = "card";
+div.innerHTML = `
+     <div style="display:flex; justify-content:space-between; align-items:center">
         <div style="flex:1">
           <h2>${k.description}${status}</h2>
           <div style="margin-top:8px">
             <small style="color:#64748b">Paper Level: <b>${k.mediaCounter} / 700</b></small>
             <div class="bar-bg"><div class="progress" style="width:${mediaPct}%; background:${barColor}"></div></div>
           </div>
-          <div style="margin-top:10px; font-size:0.75rem; color:#475569">
+           <div style="margin-top:10px; font-size:0.75rem; color:#475569">
             <b>Sources:</b> Smartphone ${smartPct}% | Booth ${boothPct}%
-          </div>
+           </div>
         </div>
         <div style="text-align:right; min-width:120px">
           <div class="count-label">Today's Prints</div>
           <div class="count-value">${prints}</div>
         </div>
-      </div>
-      <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
-         Last Heartbeat: ${new Date(k.lastActive).toLocaleTimeString()} | 30d Total: ₾${k.totalAmount}
-      </div>
-    `;
-    box.appendChild(div);
-  });
+     </div>
+     <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
+        Last Heartbeat: ${adjustedTimeStr} | 30d Total: ₾${k.totalAmount}
+     </div>
+   `;
+box.appendChild(div);
+});
 }
 
 fetchData();
