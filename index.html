@@ -5,7 +5,6 @@
   <title>InstaPix Live Dashboard</title>
   <meta http-equiv="refresh" content="60">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <style>
     body{font-family:system-ui,Arial;background:#f5f7fa;margin:0;padding:1rem}
     .card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.05);margin:1rem 0;padding:1.5rem}
@@ -16,36 +15,58 @@
     h2{margin:0;font-size:1.4rem;color:#1e293b}
     .count-label{font-size:0.75rem; color:#64748b; text-transform:uppercase; letter-spacing:1px}
     .count-value{font-size:2.5rem; font-weight:900; color:#3b82f6; line-height:1}
-    .nav-btn{background:#fff; border:1px solid #cbd5e1; padding:0.6rem 2rem; border-radius:8px; font-weight:bold; color:#334155; cursor:pointer; transition:0.2s;}
-    .nav-btn:hover{background:#f1f5f9;}
+    table{width:100%; border-collapse:collapse; font-size:0.85rem; color:#475569}
+    th{text-align:left; padding:8px 0; border-bottom:2px solid #e2e8f0}
+    td{padding:8px 0; border-bottom:1px solid #f1f5f9}
+    .error-box {background:#fee2e2; border-left:4px solid #ef4444; color:#991b1b; padding:1rem; margin:1rem 0; border-radius:8px;}
   </style>
 </head>
 <body>
   <h1 style="color:#0f172a">InstaPix – Daily Prints</h1>
+  <div id="debug-msg"></div>
   <div id="cards"></div>
 
 <script>
-const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec"; // შენი Web App URL
+const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec";
 
 async function fetchData() {
   try {
     const [liveRes, dbRes] = await Promise.all([
-      fetch("https://instapix-proxy.vercel.app/api/proxy"),
-      fetch(GOOGLE_URL)
+      fetch("https://instapix-proxy.vercel.app/api/proxy").catch(() => null),
+      fetch(GOOGLE_URL).catch(() => null)
     ]);
-    const live = await liveRes.json();
-    const dbData = await dbRes.json();
+
+    if (!liveRes || !dbRes) {
+      throw new Error("ქსელთან კავშირი ვერ დამყარდა");
+    }
+    
+    if (!dbRes.ok) {
+        throw new Error(`Google Apps Script returned status ${dbRes.status}`);
+    }
+
+    const live = await liveRes.json().catch(() => []);
+    const dbData = await dbRes.json().catch(() => ({}));
     
     const counts = dbData.today || {};
     const history = dbData.history || {};
     
     render(live, counts, history);
-  } catch (e) { console.error("Update failed", e); }
+  } catch (e) { 
+    console.error("Update failed", e);
+    document.getElementById('debug-msg').innerHTML = `
+      <div class="error-box">
+        <b>მონაცემების ჩატვირთვა ვერ მოხერხდა:</b> ${e.message}
+        <p style="margin-top:5px; font-size:0.8rem;">შემოწმეთ ინტერნეტი და სკრიპტის წვდომის უფლება.</p>
+      </div>
+    `;
+  }
 }
 
 function render(kiosks, counts, history) {
   const box = document.getElementById("cards");
   box.innerHTML = "";
+
+  if (!Array.isArray(kiosks)) kiosks = [];
 
   kiosks.forEach(k => {
     const prints = counts[k.description] || 0;
@@ -78,13 +99,11 @@ function render(kiosks, counts, history) {
       const activeDate = new Date(k.lastActive);
       isOnline = new Date() - activeDate < 5 * 60 * 1000;
       adjustedStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    } else {
-      isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
     }
 
     const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
     
-    const total = k.quantity + k.byCameraQuantity;
+    const total = (k.quantity || 0) + (k.byCameraQuantity || 0);
     let smartPct = 0;
     let boothPct = 0;
     
@@ -93,7 +112,7 @@ function render(kiosks, counts, history) {
       boothPct = 100 - smartPct;
     }
 
-    const mediaPct = (k.mediaCounter / 700) * 100;
+    const mediaPct = ((k.mediaCounter || 0) / 700) * 100;
     const barColor = mediaPct < 25 ? '#ef4444' : mediaPct < 60 ? '#facc15' : '#22c55e';
 
     const div = document.createElement("div");
@@ -103,7 +122,7 @@ function render(kiosks, counts, history) {
           <div style="flex:1">
              <h2>${k.description}${status}</h2>
              <div style="margin-top:8px">
-               <small style="color:#64748b">Paper Level: <b>${k.mediaCounter} / 700</b></small>
+               <small style="color:#64748b">Paper Level: <b>${k.mediaCounter || 0} / 700</b></small>
                <div class="bar-bg" style="height:8px; border-radius:4px; background:#e2e8f0; margin-top:10px; overflow:hidden; width:100%;">
                  <div class="progress" style="width:${mediaPct}%; background:${barColor}; height:100%;"></div>
                </div>
@@ -118,7 +137,7 @@ function render(kiosks, counts, history) {
           </div>
        </div>
        <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
-          Last Heartbeat: ${adjustedStr} | 30d Total: ₾${k.totalAmount}
+          Last Heartbeat: ${adjustedStr} | 30d Total: ₾${k.totalAmount || 0}
           <div style="margin-top:4px; color:#64748b">
             Last Print: ${timeSincePrint}
           </div>
@@ -130,76 +149,137 @@ function render(kiosks, counts, history) {
   const historyDiv = document.createElement("div");
   historyDiv.className = "card";
   historyDiv.innerHTML = `
-    <h2>📅 ისტორიული პრინტები</h2>
-    <div style="margin: 20px 0; max-height: 380px;">
+    <h2>📅 გასული დღეების სტატისტიკა</h2>
+    
+    <div style="margin: 20px 0; max-height: 350px;">
       <canvas id="statsChart"></canvas>
     </div>
-    <div style="display:flex; justify-content:space-between; margin-top:25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-      <button class="nav-btn" onclick="alert('უკან გადასვლა')">&lt; უკან</button>
-      <button class="nav-btn" onclick="alert('წინ გადასვლა')">წინ &gt;</button>
+
+    <div style="margin-top:20px; overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>თარიღი</th>
+            <th style="text-align:right">Park</th>
+            <th style="text-align:right">KU</th>
+            <th style="text-align:right">Lisi</th>
+            <th style="text-align:right">ჯამი</th>
+          </tr>
+        </thead>
+        <tbody id="history-rows"></tbody>
+      </table>
+    </div>
+    
+    <div style="display:flex; justify-content:space-between; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:15px">
+      <button onclick="prevPage()" style="padding:8px 16px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; cursor:pointer;">◀ უკან</button>
+      <button onclick="nextPage()" style="padding:8px 16px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; cursor:pointer;">წინ ▶</button>
     </div>
   `;
   
   box.appendChild(historyDiv);
+  renderChartAndTable(history);
+}
 
-  // მონაცემების მომზადება
-  const chartLabels = ['29 აპრ', '30 აპრ', '1 მაი', '2 მაი', '3 მაი', '4 მაი', '5 მაი'];
-  const chartPark = [4, 7, 4, 3, 9, 6, 4];
-  const chartKU = [7, 35, 11, 17, 11, 9, 7];
-  const chartLisi = [13, 28, 17, 25, 16, 12, 13];
-  const chartTotals = [24, 70, 32, 45, 36, 27, 24]; // ჯამები
+// გლობალური ცვლადები ნავიგაციისთვის
+let currentOffset = 0;
+let cachedHistory = {};
 
+function renderChartAndTable(history) {
+  cachedHistory = history;
+  updateTableAndChart();
+}
+
+function prevPage() {
+  currentOffset += 7;
+  updateTableAndChart();
+}
+
+function nextPage() {
+  if (currentOffset >= 7) {
+    currentOffset -= 7;
+    updateTableAndChart();
+  }
+}
+
+function updateTableAndChart() {
+  const tbody = document.getElementById("history-rows");
+  if (!tbody) return;
+  
+  tbody.innerHTML = "";
+
+  const allDates = Object.keys(cachedHistory).sort().reverse(); 
+  const pagedDates = allDates.slice(currentOffset, currentOffset + 7).reverse();
+
+  const chartLabels = [];
+  const chartPark = [];
+  const chartKU = [];
+  const chartLisi = [];
+
+  if (pagedDates.length > 0) {
+    pagedDates.forEach(date => {
+      const dayData = cachedHistory[date] || {};
+      const park = dayData['Park'] || 0;
+      const ku = dayData['KU'] || 0;
+      const lisi = dayData['Lisi'] || 0;
+      const dailyTotal = park + ku + lisi;
+
+      let dateString = date;
+      const todayStr = new Date(new Date().getTime() + (4 * 3600000)).toISOString().split('T')[0];
+      if (date === todayStr) {
+        dateString = date + ' (დღეს)';
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${dateString}</td>
+          <td style="text-align:right">${park}</td>
+          <td style="text-align:right">${ku}</td>
+          <td style="text-align:right">${lisi}</td>
+          <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
+        </tr>
+      `;
+
+      chartLabels.push(dateString);
+      chartPark.push(park);
+      chartKU.push(ku);
+      chartLisi.push(lisi);
+    });
+  } else {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
+  }
+
+  // გრაფიკის განახლება
   setTimeout(() => {
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      plugins: [ChartDataLabels],
-      data: {
-        labels: chartLabels,
-        datasets: [
-          {
-            label: 'Park',
-            data: chartPark,
-            backgroundColor: '#ef4444'
-          },
-          {
-            label: 'KU',
-            data: chartKU,
-            backgroundColor: '#3b82f6'
-          },
-          {
-            label: 'Lisi',
-            data: chartLisi,
-            backgroundColor: '#22c55e'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            stacked: true,
-            grid: { display: false }
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            max: 45, // მაქსიმალური ზღვარი ვიზუალისთვის
-            grid: { color: '#f1f5f9' }
-          }
+    const ctxEl = document.getElementById('statsChart');
+    if (window.myStatsChart) window.myStatsChart.destroy();
+    
+    if (ctxEl) {
+      const ctx = ctxEl.getContext('2d');
+      window.myStatsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            { label: 'Park', data: chartPark, backgroundColor: '#ef4444' },
+            { label: 'KU', data: chartKU, backgroundColor: '#3b82f6' },
+            { label: 'Lisi', data: chartLisi, backgroundColor: '#22c55e' }
+          ]
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top'
-          },
-          // აჩვენებს ჯამებს სვეტების თავზე
-          datalabels: {
-            color: '#0f172a',
-            anchor: 'end',
-            align: 'top',
-            font: { weight: 'bold', size: 14 },
-            formatter: function(value, context) {
-              const datasetIndex = context.datasetIndex;
-              if (datasetIndex === 2) { // მხოლოდ ბოლო სვეტზე
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, beginAtZero: true }
+          }
+        }
+      });
+    }
+  }, 100);
+}
+
+fetchData();
+setInterval(fetchData, 60000);
+</script>
+</body>
+</html>
