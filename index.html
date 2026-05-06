@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <title>InstaPix Live Dashboard</title>
   <meta http-equiv="refresh" content="60">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body{font-family:system-ui,Arial;background:#f5f7fa;margin:0;padding:1rem}
     .card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.05);margin:1rem 0;padding:1.5rem}
@@ -14,6 +15,9 @@
     h2{margin:0;font-size:1.4rem;color:#1e293b}
     .count-label{font-size:0.75rem; color:#64748b; text-transform:uppercase; letter-spacing:1px}
     .count-value{font-size:2.5rem; font-weight:900; color:#3b82f6; line-height:1}
+    table{width:100%; border-collapse:collapse; font-size:0.85rem; color:#475569}
+    th{text-align:left; padding:8px 0; border-bottom:2px solid #e2e8f0}
+    td{padding:8px 0; border-bottom:1px solid #f1f5f9}
   </style>
 </head>
 <body>
@@ -21,7 +25,7 @@
   <div id="cards"></div>
 
 <script>
-const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec"; // Your Web App URL
+const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec"; // შენი Web App URL
 
 async function fetchData() {
   try {
@@ -30,19 +34,22 @@ async function fetchData() {
       fetch(GOOGLE_URL)
     ]);
     const live = await liveRes.json();
-    const counts = await dbRes.json();
-    render(live, counts);
+    const dbData = await dbRes.json();
+    
+    const counts = dbData.today || dbData;
+    const history = dbData.history || {};
+    
+    render(live, counts, history);
   } catch (e) { console.error("Update failed", e); }
 }
 
-function render(kiosks, counts) {
+function render(kiosks, counts, history) {
   const box = document.getElementById("cards");
   box.innerHTML = "";
 
   kiosks.forEach(k => {
     const prints = counts[k.description] || 0;
 
-    // Calculate time since last print using k.lastOperationDate
     let timeSincePrint = "N/A";
     if (k.lastOperationDate) {
       const printDate = new Date(k.lastOperationDate);
@@ -65,13 +72,11 @@ function render(kiosks, counts) {
     }
 
     let isOnline = false;
-    let adjustedTimeStr = "N/A";
+    let adjustedStr = "N/A";
 
     if (k.lastActive) {
       const activeDate = new Date(k.lastActive);
-      
       isOnline = new Date() - activeDate < 5 * 60 * 1000;
-      // 24-საათიანი ფორმატი საათის, წუთის და წამის ჩვენებით
       adjustedStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     } else {
       isOnline = new Date() - new Date(k.lastActive) < 5 * 60 * 1000;
@@ -79,7 +84,6 @@ function render(kiosks, counts) {
 
     const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
     
-    // Calculate Percentages rounded to 5%
     const total = k.quantity + k.byCameraQuantity;
     let smartPct = 0;
     let boothPct = 0;
@@ -122,6 +126,127 @@ function render(kiosks, counts) {
      `;
     box.appendChild(div);
   });
+
+  // ისტორიის დაფა და გრაფიკი
+  const historyDiv = document.createElement("div");
+  historyDiv.className = "card";
+  historyDiv.innerHTML = `
+    <h2>📅 გასული დღეების სტატისტიკა</h2>
+    
+    <div style="margin: 20px 0; max-height: 350px;">
+      <canvas id="statsChart"></canvas>
+    </div>
+
+    <div style="margin-top:20px; overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>თარიღი</th>
+            <th style="text-align:right">Park</th>
+            <th style="text-align:right">KU</th>
+            <th style="text-align:right">Lisi</th>
+            <th style="text-align:right">ჯამი</th>
+          </tr>
+        </thead>
+        <tbody id="history-rows"></tbody>
+      </table>
+    </div>
+  `;
+  
+  const tbody = historyDiv.querySelector("#history-rows");
+  tbody.innerHTML = "";
+
+  const chartLabels = [];
+  const chartPark = [];
+  const chartKU = [];
+  const chartLisi = [];
+  const chartTotal = [];
+
+  if (Object.keys(history).length > 0) {
+    Object.keys(history).forEach(date => {
+      const dayData = history[date] || {};
+      
+      const park = dayData['Park'] || 0;
+      const ku = dayData['KU'] || 0;
+      const lisi = dayData['Lisi'] || 0;
+      
+      const dailyTotal = park + ku + lisi;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${date}</td>
+          <td style="text-align:right">${park}</td>
+          <td style="text-align:right">${ku}</td>
+          <td style="text-align:right">${lisi}</td>
+          <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
+        </tr>
+      `;
+
+      chartLabels.push(date);
+      chartPark.push(park);
+      chartKU.push(ku);
+      chartLisi.push(lisi);
+      chartTotal.push(dailyTotal);
+    });
+  } else {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
+  }
+  
+  box.appendChild(historyDiv);
+
+  // გრაფიკის აგება
+  setTimeout(() => {
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Park',
+            data: chartPark,
+            backgroundColor: '#ef4444'
+          },
+          {
+            label: 'KU',
+            data: chartKU,
+            backgroundColor: '#3b82f6'
+          },
+          {
+            label: 'Lisi',
+            data: chartLisi,
+            backgroundColor: '#22c55e'
+          },
+          {
+            label: 'ჯამი',
+            data: chartTotal,
+            borderColor: '#64748b',
+            backgroundColor: 'rgba(100, 116, 139, 0.2)',
+            type: 'line',
+            order: 0,
+            tension: 0.3,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: {
+              display: false
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }, 100);
 }
 
 fetchData();
