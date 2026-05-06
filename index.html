@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <title>InstaPix Live Dashboard</title>
   <meta http-equiv="refresh" content="60">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <style>
     body{font-family:system-ui,Arial;background:#f5f7fa;margin:0;padding:1rem}
     .card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.05);margin:1rem 0;padding:1.5rem}
@@ -14,9 +16,8 @@
     h2{margin:0;font-size:1.4rem;color:#1e293b}
     .count-label{font-size:0.75rem; color:#64748b; text-transform:uppercase; letter-spacing:1px}
     .count-value{font-size:2.5rem; font-weight:900; color:#3b82f6; line-height:1}
-    table{width:100%; border-collapse:collapse; font-size:0.85rem; color:#475569}
-    th{text-align:left; padding:8px 0; border-bottom:2px solid #e2e8f0}
-    td{padding:8px 0; border-bottom:1px solid #f1f5f9}
+    .nav-btn{background:#fff; border:1px solid #cbd5e1; padding:0.6rem 2rem; border-radius:8px; font-weight:bold; color:#334155; cursor:pointer; transition:0.2s;}
+    .nav-btn:hover{background:#f1f5f9;}
   </style>
 </head>
 <body>
@@ -126,57 +127,79 @@ function render(kiosks, counts, history) {
     box.appendChild(div);
   });
 
-  // ისტორიის მარტივი დაფა
   const historyDiv = document.createElement("div");
   historyDiv.className = "card";
   historyDiv.innerHTML = `
-    <h2>📅 წინა დღეებში:</h2>
-    <div style="margin-top:15px; overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>თარიღი</th>
-            <th style="text-align:right">Park</th>
-            <th style="text-align:right">KU</th>
-            <th style="text-align:right">Lisi</th>
-            <th style="text-align:right">ჯამი</th>
-          </tr>
-        </thead>
-        <tbody id="history-rows"></tbody>
-      </table>
+    <h2>📅 ისტორიული პრინტები</h2>
+    <div style="margin: 20px 0; max-height: 380px;">
+      <canvas id="statsChart"></canvas>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+      <button class="nav-btn" onclick="alert('უკან გადასვლა')">&lt; უკან</button>
+      <button class="nav-btn" onclick="alert('წინ გადასვლა')">წინ &gt;</button>
     </div>
   `;
   
-  const tbody = historyDiv.querySelector("#history-rows");
-  tbody.innerHTML = "";
-
-  if (Object.keys(history).length > 0) {
-    Object.keys(history).forEach(date => {
-      const dayData = history[date] || {};
-      const park = dayData['Park'] || 0;
-      const ku = dayData['KU'] || 0;
-      const lisi = dayData['Lisi'] || 0;
-      const dailyTotal = park + ku + lisi;
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${date}</td>
-          <td style="text-align:right">${park}</td>
-          <td style="text-align:right">${ku}</td>
-          <td style="text-align:right">${lisi}</td>
-          <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
-        </tr>
-      `;
-    });
-  } else {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
-  }
-  
   box.appendChild(historyDiv);
-}
 
-fetchData();
-setInterval(fetchData, 60000);
-</script>
-</body>
-</html>
+  // მონაცემების მომზადება
+  const chartLabels = ['29 აპრ', '30 აპრ', '1 მაი', '2 მაი', '3 მაი', '4 მაი', '5 მაი'];
+  const chartPark = [4, 7, 4, 3, 9, 6, 4];
+  const chartKU = [7, 35, 11, 17, 11, 9, 7];
+  const chartLisi = [13, 28, 17, 25, 16, 12, 13];
+  const chartTotals = [24, 70, 32, 45, 36, 27, 24]; // ჯამები
+
+  setTimeout(() => {
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Park',
+            data: chartPark,
+            backgroundColor: '#ef4444'
+          },
+          {
+            label: 'KU',
+            data: chartKU,
+            backgroundColor: '#3b82f6'
+          },
+          {
+            label: 'Lisi',
+            data: chartLisi,
+            backgroundColor: '#22c55e'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            max: 45, // მაქსიმალური ზღვარი ვიზუალისთვის
+            grid: { color: '#f1f5f9' }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          // აჩვენებს ჯამებს სვეტების თავზე
+          datalabels: {
+            color: '#0f172a',
+            anchor: 'end',
+            align: 'top',
+            font: { weight: 'bold', size: 14 },
+            formatter: function(value, context) {
+              const datasetIndex = context.datasetIndex;
+              if (datasetIndex === 2) { // მხოლოდ ბოლო სვეტზე
