@@ -35,7 +35,7 @@ async function fetchData() {
     const live = await liveRes.json();
     const dbData = await dbRes.json();
     
-    const counts = dbData.today || dbData;
+    const counts = dbData.today || {};
     const history = dbData.history || {};
     
     render(live, counts, history);
@@ -47,12 +47,7 @@ function render(kiosks, counts, history) {
   box.innerHTML = "";
 
   kiosks.forEach(k => {
-    let prints = 0;
-    if (typeof counts === 'object' && counts !== null) {
-      prints = counts[k.description] || 0;
-    } else {
-      prints = counts || 0;
-    }
+    const prints = counts[k.description] || 0;
 
     let timeSincePrint = "N/A";
     if (k.lastOperationDate) {
@@ -131,16 +126,17 @@ function render(kiosks, counts, history) {
     box.appendChild(div);
   });
 
+  // ისტორიის მარტივი დაფა
   const historyDiv = document.createElement("div");
   historyDiv.className = "card";
   historyDiv.innerHTML = `
     <h2>📅 გასული დღეების სტატისტიკა</h2>
-    <div style="margin-top:20px; overflow-x:auto;">
+    <div style="margin-top:15px; overflow-x:auto;">
       <table>
         <thead>
           <tr>
             <th>თარიღი</th>
-            <th style="text-align:right">Park (Vake)</th>
+            <th style="text-align:right">Park</th>
             <th style="text-align:right">KU</th>
             <th style="text-align:right">Lisi</th>
             <th style="text-align:right">ჯამი</th>
@@ -157,11 +153,9 @@ function render(kiosks, counts, history) {
   if (Object.keys(history).length > 0) {
     Object.keys(history).forEach(date => {
       const dayData = history[date] || {};
-      
       const park = dayData['Park'] || 0;
       const ku = dayData['KU'] || 0;
       const lisi = dayData['Lisi'] || 0;
-      
       const dailyTotal = park + ku + lisi;
 
       tbody.innerHTML += `
@@ -175,7 +169,7 @@ function render(kiosks, counts, history) {
       `;
     });
   } else {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
   }
   
   box.appendChild(historyDiv);
