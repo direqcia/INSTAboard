@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <title>InstaPix Live Dashboard</title>
   <meta http-equiv="refresh" content="60">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body{font-family:system-ui,Arial;background:#f5f7fa;margin:0;padding:1rem}
     .card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.05);margin:1rem 0;padding:1.5rem}
@@ -136,15 +135,12 @@ function render(kiosks, counts, history) {
   historyDiv.className = "card";
   historyDiv.innerHTML = `
     <h2>📅 გასული დღეების სტატისტიკა</h2>
-    <div style="margin: 20px 0; max-height: 350px;">
-      <canvas id="statsChart"></canvas>
-    </div>
     <div style="margin-top:20px; overflow-x:auto;">
       <table>
         <thead>
           <tr>
             <th>თარიღი</th>
-            <th style="text-align:right">Park</th>
+            <th style="text-align:right">Park (Vake)</th>
             <th style="text-align:right">KU</th>
             <th style="text-align:right">Lisi</th>
             <th style="text-align:right">ჯამი</th>
@@ -158,18 +154,14 @@ function render(kiosks, counts, history) {
   const tbody = historyDiv.querySelector("#history-rows");
   tbody.innerHTML = "";
 
-  const chartLabels = [];
-  const chartPark = [];
-  const chartKU = [];
-  const chartLisi = [];
-  const chartTotal = [];
-
   if (Object.keys(history).length > 0) {
     Object.keys(history).forEach(date => {
       const dayData = history[date] || {};
+      
       const park = dayData['Park'] || 0;
       const ku = dayData['KU'] || 0;
       const lisi = dayData['Lisi'] || 0;
+      
       const dailyTotal = park + ku + lisi;
 
       tbody.innerHTML += `
@@ -181,46 +173,12 @@ function render(kiosks, counts, history) {
           <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
         </tr>
       `;
-
-      chartLabels.push(date);
-      chartPark.push(park);
-      chartKU.push(ku);
-      chartLisi.push(lisi);
-      chartTotal.push(dailyTotal);
     });
   } else {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
   }
   
   box.appendChild(historyDiv);
-
-  setTimeout(() => {
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: chartLabels,
-        datasets: [
-          { label: 'Park', data: chartPark, backgroundColor: '#ef4444' },
-          { label: 'KU', data: chartKU, backgroundColor: '#3b82f6' },
-          { label: 'Lisi', data: chartLisi, backgroundColor: '#22c55e' },
-          { 
-            label: 'ჯამი', data: chartTotal, borderColor: '#64748b', 
-            backgroundColor: 'rgba(100, 116, 139, 0.2)', type: 'line', 
-            order: 0, tension: 0.3, fill: true 
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, beginAtZero: true }
-        }
-      }
-    });
-  }, 100);
 }
 
 fetchData();
