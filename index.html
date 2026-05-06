@@ -48,7 +48,12 @@ function render(kiosks, counts, history) {
   box.innerHTML = "";
 
   kiosks.forEach(k => {
-    const prints = counts[k.description] || 0;
+    let prints = 0;
+    if (typeof counts === 'object' && counts !== null) {
+      prints = counts[k.description] || 0;
+    } else {
+      prints = counts || 0;
+    }
 
     let timeSincePrint = "N/A";
     if (k.lastOperationDate) {
@@ -127,16 +132,13 @@ function render(kiosks, counts, history) {
     box.appendChild(div);
   });
 
-  // ისტორიის დაფა და გრაფიკი
   const historyDiv = document.createElement("div");
   historyDiv.className = "card";
   historyDiv.innerHTML = `
     <h2>📅 გასული დღეების სტატისტიკა</h2>
-    
     <div style="margin: 20px 0; max-height: 350px;">
       <canvas id="statsChart"></canvas>
     </div>
-
     <div style="margin-top:20px; overflow-x:auto;">
       <table>
         <thead>
@@ -165,11 +167,9 @@ function render(kiosks, counts, history) {
   if (Object.keys(history).length > 0) {
     Object.keys(history).forEach(date => {
       const dayData = history[date] || {};
-      
       const park = dayData['Park'] || 0;
       const ku = dayData['KU'] || 0;
       const lisi = dayData['Lisi'] || 0;
-      
       const dailyTotal = park + ku + lisi;
 
       tbody.innerHTML += `
@@ -194,7 +194,6 @@ function render(kiosks, counts, history) {
   
   box.appendChild(historyDiv);
 
-  // გრაფიკის აგება
   setTimeout(() => {
     const ctx = document.getElementById('statsChart').getContext('2d');
     new Chart(ctx, {
@@ -202,30 +201,13 @@ function render(kiosks, counts, history) {
       data: {
         labels: chartLabels,
         datasets: [
-          {
-            label: 'Park',
-            data: chartPark,
-            backgroundColor: '#ef4444'
-          },
-          {
-            label: 'KU',
-            data: chartKU,
-            backgroundColor: '#3b82f6'
-          },
-          {
-            label: 'Lisi',
-            data: chartLisi,
-            backgroundColor: '#22c55e'
-          },
-          {
-            label: 'ჯამი',
-            data: chartTotal,
-            borderColor: '#64748b',
-            backgroundColor: 'rgba(100, 116, 139, 0.2)',
-            type: 'line',
-            order: 0,
-            tension: 0.3,
-            fill: true
+          { label: 'Park', data: chartPark, backgroundColor: '#ef4444' },
+          { label: 'KU', data: chartKU, backgroundColor: '#3b82f6' },
+          { label: 'Lisi', data: chartLisi, backgroundColor: '#22c55e' },
+          { 
+            label: 'ჯამი', data: chartTotal, borderColor: '#64748b', 
+            backgroundColor: 'rgba(100, 116, 139, 0.2)', type: 'line', 
+            order: 0, tension: 0.3, fill: true 
           }
         ]
       },
@@ -233,16 +215,8 @@ function render(kiosks, counts, history) {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          x: {
-            stacked: true,
-            grid: {
-              display: false
-            }
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true
-          }
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, beginAtZero: true }
         }
       }
     });
