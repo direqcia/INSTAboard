@@ -136,7 +136,7 @@ function render(kiosks, counts, history) {
           </div>
        </div>
        <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
-          Last Heartbeat: ${adjustedStr || "N/A"} | 30d Total: ₾${k.totalAmount || 0}
+          Last Heartbeat: ${new Date().toLocaleTimeString()} | 30d Total: ₾${k.totalAmount || 0}
           <div style="margin-top:4px; color:#64748b">
             Last Print: ${timeSincePrint}
           </div>
@@ -150,7 +150,7 @@ function render(kiosks, counts, history) {
   historyDiv.innerHTML = `
     <h2>📅 გასული დღეების სტატისტიკა</h2>
     
-    <div style="margin: 20px 0; max-height: 350px;">
+    <div style="margin: 20px 0; max-height: 350px; height: 300px;">
       <canvas id="statsChart"></canvas>
     </div>
 
@@ -246,7 +246,7 @@ function updateTableAndChart() {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
   }
 
-  // გრაფიკის განახლება
+  // გრაფიკის განახლება (დაემატა categoryPercentage და barPercentage ზომის შესამცირებლად)
   setTimeout(() => {
     const ctxEl = document.getElementById('statsChart');
     if (window.myStatsChart) window.myStatsChart.destroy();
@@ -268,11 +268,13 @@ function updateTableAndChart() {
           maintainAspectRatio: false,
           scales: {
             x: {
-              stacked: false, // <-- აქ ვაუქმებთ Stacked რეჟიმს რომ გვერდი-გვერდ დადგეს
+              stacked: false,
+              categoryPercentage: 0.5,
+              barPercentage: 0.6,
               grid: { display: false }
             },
             y: {
-              stacked: false, // <-- აქ ვაუქმებთ Stacked რეჟიმს Y ღერძზე
+              stacked: false,
               beginAtZero: true
             }
           }
