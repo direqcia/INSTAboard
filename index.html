@@ -98,6 +98,7 @@ function render(kiosks, counts, history) {
     if (k.lastActive) {
       const activeDate = new Date(k.lastActive);
       isOnline = new Date() - activeDate < 5 * 60 * 1000;
+      adjustedStr = activeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     }
 
     const status = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
@@ -136,7 +137,7 @@ function render(kiosks, counts, history) {
           </div>
        </div>
        <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
-          Last Heartbeat: ${new Date().toLocaleTimeString()} | 30d Total: ₾${k.totalAmount || 0}
+          Last Heartbeat: ${adjustedStr} | 30d Total: ₾${k.totalAmount || 0}
           <div style="margin-top:4px; color:#64748b">
             Last Print: ${timeSincePrint}
           </div>
@@ -205,48 +206,65 @@ function updateTableAndChart() {
   
   tbody.innerHTML = "";
 
-  const allDates = Object.keys(cachedHistory).sort().reverse(); 
-  const pagedDates = allDates.slice(currentOffset, currentOffset + 7).reverse();
+  const allDates = Object.keys(cachedHistory).sort(); 
+  const endIndex = allDates.length - 1 - currentOffset;
+  const startIndex = Math.max(0, endIndex - 6);
+  let pagedDates = allDates.slice(startIndex, endIndex + 1);
+
+  // ყოველთვის ვავსებთ 7-მდე, რათა სვეტები დარჩეს ვიწრო
+  while (pagedDates.length < 7 && currentOffset > 0) {
+    currentOffset = Math.max(0, currentOffset - 1);
+    const newEndIndex = allDates.length - 1 - currentOffset;
+    const newStartIndex = Math.max(0, newEndIndex - 6);
+    pagedDates = allDates.slice(newStartIndex, newEndIndex + 1);
+  }
+  
+  while (pagedDates.length < 7) {
+    const firstDate = new Date(pagedDates[0] || Date.now());
+    firstDate.setDate(firstDate.getDate() - 1);
+    pagedDates.unshift(firstDate.toISOString().split('T')[0]);
+  }
 
   const chartLabels = [];
   const chartPark = [];
   const chartKU = [];
   const chartLisi = [];
 
-  if (pagedDates.length > 0) {
-    pagedDates.forEach(date => {
-      const dayData = cachedHistory[date] || {};
-      const park = dayData['Park'] || 0;
-      const ku = dayData['KU'] || 0;
-      const lisi = dayData['Lisi'] || 0;
-      const dailyTotal = park + ku + lisi;
+  pagedDates.forEach(date => {
+    let dayData = cachedHistory[date];
+    // თუ თარიღი გამოგონილია, ვაჩვენებთ ნულოვან მონაცემს
+    if (!dayData || !cachedHistory[date]) {
+      dayData = { Park: 0, KU: 0, Lisi: 0 };
+    }
 
-      let dateString = date;
-      const todayStr = new Date(new Date().getTime() + (4 * 3600000)).toISOString().split('T')[0];
-      if (date === todayStr) {
-        dateString = date + ' (დღეს)';
-      }
+    const park = dayData['Park'] || 0;
+    const ku = dayData['KU'] || 0;
+    const lisi = dayData['Lisi'] || 0;
+    const dailyTotal = park + ku + lisi;
 
-      tbody.innerHTML += `
-        <tr>
-          <td>${dateString}</td>
-          <td style="text-align:right">${park}</td>
-          <td style="text-align:right">${ku}</td>
-          <td style="text-align:right">${lisi}</td>
-          <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
-        </tr>
-      `;
+    let dateString = date;
+    const todayStr = new Date(new Date().getTime() + (4 * 3600000)).toISOString().split('T')[0];
+    if (date === todayStr) {
+      dateString = date + ' (დღეს)';
+    }
 
-      chartLabels.push(dateString);
-      chartPark.push(park);
-      chartKU.push(ku);
-      chartLisi.push(lisi);
-    });
-  } else {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px 0">მონაცემები ვერ მოიძებნა</td></tr>`;
-  }
+    tbody.innerHTML += `
+      <tr>
+        <td>${dateString}</td>
+        <td style="text-align:right">${park}</td>
+        <td style="text-align:right">${ku}</td>
+        <td style="text-align:right">${lisi}</td>
+        <td style="text-align:right; font-weight:bold; color:#3b82f6">${dailyTotal}</td>
+      </tr>
+    `;
 
-  // გრაფიკის განახლება (დაემატა categoryPercentage და barPercentage ზომის შესამცირებლად)
+    chartLabels.push(date.substring(5)); // ფორმატი: თვე-დღე
+    chartPark.push(park);
+    chartKU.push(ku);
+    chartLisi.push(lisi);
+  });
+
+  // გრაფიკის განახლება
   setTimeout(() => {
     const ctxEl = document.getElementById('statsChart');
     if (window.myStatsChart) window.myStatsChart.destroy();
@@ -269,8 +287,9 @@ function updateTableAndChart() {
           scales: {
             x: {
               stacked: false,
-              categoryPercentage: 0.5,
-              barPercentage: 0.6,
+              categoryPercentage: 0.3,
+              barPercentage: 0.4,
+              maxBarThickness: 12, // სვეტის მაქსიმალური სისქე (პიქსელებში)
               grid: { display: false }
             },
             y: {
