@@ -27,17 +27,20 @@
   <div id="cards"></div>
 
 <script>
-const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec"; // შენი Web App URL
+const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw2uKZ4HvDqKrTScKQ8YuluCCwPc1vLG7DXAujSGmi1yM19PYMQWmeAAGpss_YyvkyY/exec"; 
 
 async function fetchData() {
   try {
     const [liveRes, dbRes] = await Promise.all([
-      fetch("https://instapix-proxy.vercel.app/api/proxy").catch(() => null),
-      fetch(GOOGLE_URL).catch(() => null)
+      fetch("https://instapix-proxy.vercel.app/api/proxy").catch(err => { console.error("Vercel proxy failed:", err); return null; }),
+      fetch(GOOGLE_URL).catch(err => { console.error("Google Script failed:", err); return null; })
     ]);
 
-    if (!liveRes || !dbRes) {
-      throw new Error("ქსელთან კავშირი ვერ დამყარდა");
+    if (!liveRes) {
+      throw new Error("Vercel Proxy სერვერთან (Live სტატუსი) კავშირი ვერ დამყარდა.");
+    }
+    if (!dbRes) {
+      throw new Error("Google Sheets სკრიპტთან (ბეჭდვის ისტორია) კავშირი ვერ დამყარდა.");
     }
     
     if (!dbRes.ok) {
@@ -50,20 +53,28 @@ async function fetchData() {
     const counts = dbData.today || {};
     const history = dbData.history || {};
     
+    // Clear out errors if any existed previously
+    const debugEl = document.getElementById('debug-msg');
+    if (debugEl) debugEl.innerHTML = "";
+
     render(live, counts, history);
   } catch (e) { 
     console.error("Update failed", e);
-    document.getElementById('debug-msg').innerHTML = `
-      <div class="error-box">
-        <b>მონაცემების ჩატვირთვა ვერ მოხერხდა:</b> ${e.message}
-        <p style="margin-top:5px; font-size:0.8rem;">შემოწმეთ ინტერნეტი და სკრიპტის წვდომის უფლება.</p>
-      </div>
-    `;
+    const debugEl = document.getElementById('debug-msg');
+    if (debugEl) {
+      debugEl.innerHTML = `
+        <div class="error-box">
+          <b>მონაცემების ჩატვირთვა ვერ მოხერხდა:</b> ${e.message}
+          <p style="margin-top:5px; font-size:0.8rem;">შემოწმეთ ინტერნეტი, Vercel-ის სტატუსი და Google სკრიპტის წვდომის უფლებები (სკრიპტი გაზიარებული უნდა იყოს Anyone-ზე).</p>
+        </div>
+      `;
+    }
   }
 }
 
 function render(kiosks, counts, history) {
   const box = document.getElementById("cards");
+  if (!box) return;
   box.innerHTML = "";
 
   if (!Array.isArray(kiosks)) kiosks = [];
@@ -118,30 +129,30 @@ function render(kiosks, counts, history) {
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
-       <div style="display:flex; justify-content:space-between; align-items:center">
+        <div style="display:flex; justify-content:space-between; align-items:center">
           <div style="flex:1">
-             <h2>${k.description}${status}</h2>
+             <h2>${k.description || "Unknown Kiosk"}${status}</h2>
              <div style="margin-top:8px">
                <small style="color:#64748b">Paper Level: <b>${k.mediaCounter || 0} / 700</b></small>
-               <div class="bar-bg" style="height:8px; border-radius:4px; background:#e2e8f0; margin-top:10px; overflow:hidden; width:100%;">
-                 <div class="progress" style="width:${mediaPct}%; background:${barColor}; height:100%;"></div>
+               <div class="bar-bg">
+                 <div class="progress" style="width:${mediaPct}%; background:${barColor};"></div>
                </div>
              </div>
               <div style="margin-top:10px; font-size:0.75rem; color:#475569">
               <b>Sources:</b> Smartphone ${smartPct}% | Booth ${boothPct}%
-             </div>
+              </div>
           </div>
           <div style="text-align:right; min-width:120px">
             <div class="count-label">Today's Prints</div>
             <div class="count-value">${prints}</div>
           </div>
-       </div>
-       <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
+        </div>
+        <div style="margin-top:15px; font-size:0.8rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px">
           Last Heartbeat: ${adjustedStr} | 30d Total: ₾${k.totalAmount || 0}
           <div style="margin-top:4px; color:#64748b">
             Last Print: ${timeSincePrint}
           </div>
-       </div>
+        </div>
      `;
     box.appendChild(div);
   });
@@ -211,7 +222,6 @@ function updateTableAndChart() {
   const startIndex = Math.max(0, endIndex - 6);
   let pagedDates = allDates.slice(startIndex, endIndex + 1);
 
-  // ყოველთვის ვავსებთ 7-მდე, რათა სვეტები დარჩეს ვიწრო
   while (pagedDates.length < 7 && currentOffset > 0) {
     currentOffset = Math.max(0, currentOffset - 1);
     const newEndIndex = allDates.length - 1 - currentOffset;
@@ -232,7 +242,6 @@ function updateTableAndChart() {
 
   pagedDates.forEach(date => {
     let dayData = cachedHistory[date];
-    // თუ თარიღი გამოგონილია, ვაჩვენებთ ნულოვან მონაცემს
     if (!dayData || !cachedHistory[date]) {
       dayData = { Park: 0, KU: 0, Lisi: 0 };
     }
@@ -258,13 +267,12 @@ function updateTableAndChart() {
       </tr>
     `;
 
-    chartLabels.push(date.substring(5)); // ფორმატი: თვე-დღე
+    chartLabels.push(date.substring(5)); 
     chartPark.push(park);
     chartKU.push(ku);
     chartLisi.push(lisi);
   });
 
-  // გრაფიკის განახლება
   setTimeout(() => {
     const ctxEl = document.getElementById('statsChart');
     if (window.myStatsChart) window.myStatsChart.destroy();
@@ -289,7 +297,7 @@ function updateTableAndChart() {
               stacked: false,
               categoryPercentage: 0.3,
               barPercentage: 0.4,
-              maxBarThickness: 12, // სვეტის მაქსიმალური სისქე (პიქსელებში)
+              maxBarThickness: 12, 
               grid: { display: false }
             },
             y: {
@@ -303,8 +311,11 @@ function updateTableAndChart() {
   }, 100);
 }
 
-fetchData();
-setInterval(fetchData, 60000);
+// SAFE SETUP EXECUTION
+document.addEventListener("DOMContentLoaded", () => {
+  fetchData();
+  setInterval(fetchData, 60000);
+});
 </script>
 </body>
 </html>
